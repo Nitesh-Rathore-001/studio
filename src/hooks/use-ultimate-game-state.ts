@@ -126,8 +126,7 @@ export const useUltimateGameState = () => {
   const undo = useCallback(() => {
     if (canUndo) {
         const newIndex = historyIndex - 1;
-        const-
-        previousState = history[newIndex];
+        const previousState = history[newIndex];
         setHistoryIndex(newIndex);
         setBoards(previousState.boards);
         setMainBoard(previousState.mainBoard);
