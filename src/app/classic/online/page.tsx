@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 export default function ClassicOnlinePage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function ClassicOnlinePage() {
     setIsLoadingCreate(true);
     try {
       const gameRef = await addDoc(collection(db, "classicGames"), {
-        board: Array(9).fill(null),
+        board: Array(3).fill(null).map(() => Array(3).fill(null)),
         players: { X: null, O: null },
         currentPlayer: "X",
         status: "waiting",
@@ -53,6 +53,7 @@ export default function ClassicOnlinePage() {
           description: "The game code you entered is invalid.",
           variant: "destructive",
         });
+        setIsLoadingJoin(false);
       }
     } catch (error) {
       console.error("Error joining game:", error);
@@ -61,7 +62,6 @@ export default function ClassicOnlinePage() {
         description: "Failed to join the game. Please check the code and try again.",
         variant: "destructive",
       });
-    } finally {
       setIsLoadingJoin(false);
     }
   };
@@ -87,8 +87,7 @@ export default function ClassicOnlinePage() {
           </CardHeader>
           <CardContent>
             <Button onClick={createGame} disabled={isLoadingCreate} className="w-full">
-              {isLoadingCreate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Game
+              {isLoadingCreate ? <UniqueLoading size="sm" className="w-6 h-6" /> : "Create Game"}
             </Button>
           </CardContent>
         </Card>
@@ -107,9 +106,8 @@ export default function ClassicOnlinePage() {
                 onChange={(e) => setJoinCode(e.target.value)}
                 disabled={isLoadingJoin}
               />
-              <Button type="submit" disabled={isLoadingJoin || !joinCode}>
-                 {isLoadingJoin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Join
+              <Button type="submit" disabled={isLoadingJoin || !joinCode.trim()}>
+                 {isLoadingJoin ? <UniqueLoading size="sm" className="w-6 h-6" /> : "Join"}
               </Button>
             </form>
           </CardContent>

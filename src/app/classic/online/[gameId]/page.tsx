@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Users } from "lucide-react";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
   board: Player[][];
@@ -106,7 +107,10 @@ export default function ClassicOnlineGamePage() {
   };
 
   if (!game) {
-    return <div className="container mx-auto px-4 py-12 text-center">Loading game...</div>;
+    return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
+        <UniqueLoading size="lg" />
+        Loading game...
+    </div>;
   }
   
   const isSpectator = userId !== game.players.X && userId !== game.players.O;
@@ -145,7 +149,7 @@ export default function ClassicOnlineGamePage() {
       </Card>
       
       <GameBoard
-        board={game.board.map(row => row.slice(0,3))} // This is a hack because GameBoard expects gridSize
+        board={game.board}
         onCellClick={handleCellClick}
         disabled={game.status !== "playing" || playerRole !== game.currentPlayer}
         winningCells={[]}
