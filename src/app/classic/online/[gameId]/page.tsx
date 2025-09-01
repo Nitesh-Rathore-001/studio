@@ -22,6 +22,7 @@ type GameState = {
   players: { X: string | null, O: string | null };
   status: "waiting" | "playing" | "finished";
   size: number;
+  winCondition: number;
 };
 
 // This is a placeholder for a real user ID system
@@ -30,10 +31,12 @@ const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
 // Helper to convert Firestore map to a 2D array for the component
 const boardMapToArray = (boardMap: { [key: string]: Player }, size: number): Player[][] => {
   const array: Player[][] = Array(size).fill(null).map(() => Array(size).fill(null));
-  for (const key in boardMap) {
-    const [row, col] = key.split("_").map(Number);
-    if(row < size && col < size) {
-       array[row][col] = boardMap[key];
+  if (boardMap) {
+    for (const key in boardMap) {
+      const [row, col] = key.split("_").map(Number);
+      if(row < size && col < size) {
+         array[row][col] = boardMap[key];
+      }
     }
   }
   return array;
@@ -104,7 +107,9 @@ export default function ClassicOnlineGamePage() {
     if (game) {
       return boardMapToArray(game.board, game.size);
     }
-    return [];
+    // Return an empty board matching the size to prevent errors before game loads
+    const size = game?.size || 3;
+    return Array(size).fill(null).map(() => Array(size).fill(null));
   }, [game]);
 
   const handleCellClick = async (row: number, col: number) => {
@@ -115,7 +120,7 @@ export default function ClassicOnlineGamePage() {
     const currentBoardArray = boardMapToArray(game.board, game.size);
     currentBoardArray[row][col] = game.currentPlayer;
 
-    const winInfo = checkWin(currentBoardArray, game.currentPlayer, 3); // Classic is always 3-in-a-row
+    const winInfo = checkWin(currentBoardArray, game.currentPlayer, game.winCondition);
     const nextPlayer = game.currentPlayer === "X" ? "O" : "X";
     const newStatus = winInfo ? "finished" : "playing";
 
@@ -125,6 +130,7 @@ export default function ClassicOnlineGamePage() {
       [updatedBoardField]: game.currentPlayer,
       currentPlayer: nextPlayer,
       winner: winInfo ? game.currentPlayer : null,
+      winningCells: winInfo ? winInfo.winningCells : [],
       status: newStatus,
     });
   };
@@ -149,7 +155,8 @@ export default function ClassicOnlineGamePage() {
     <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-8">
       <Card className="w-full max-w-lg">
         <CardContent className="p-6 text-center">
-            <h1 className="font-headline text-3xl mb-2">Classic Online Game</h1>
+            <h1 className="font-headline text-3xl mb-2">{game.size}x{game.size} Online Game</h1>
+            <p className="text-sm text-muted-foreground mb-4">Win by getting {game.winCondition} in a row.</p>
             {game.status === 'waiting' && (
                 <Alert>
                     <Users className="h-4 w-4" />
@@ -180,7 +187,7 @@ export default function ClassicOnlineGamePage() {
         board={boardArray}
         onCellClick={handleCellClick}
         disabled={game.status !== "playing" || playerRole !== game.currentPlayer}
-        winningCells={[]} // Winning cells display not implemented for online yet
+        winningCells={game.winner && (game as any).winningCells ? (game as any).winningCells : []}
       />
     </div>
   );

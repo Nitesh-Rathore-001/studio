@@ -3,51 +3,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import UniqueLoading from "@/components/ui/grid-loading";
+import Link from "next/link";
 
 export default function ClassicOnlinePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [joinCode, setJoinCode] = useState("");
-  const [isLoadingCreate, setIsLoadingCreate] = useState(false);
   const [isLoadingJoin, setIsLoadingJoin] = useState(false);
 
-  const createGame = async () => {
-    setIsLoadingCreate(true);
-    try {
-      // Firestore doesn't support nested arrays. We'll use a map instead.
-      const board = {};
-      for(let i=0; i<3; i++) {
-        for(let j=0; j<3; j++) {
-            board[`${i}_${j}`] = null;
-        }
-      }
-
-      const gameRef = await addDoc(collection(db, "classicGames"), {
-        board: board,
-        players: { X: null, O: null },
-        currentPlayer: "X",
-        status: "waiting",
-        createdAt: serverTimestamp(),
-        size: 3,
-      });
-      router.push(`/classic/online/${gameRef.id}`);
-    } catch (error) {
-      console.error("Error creating game:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create a game. Please try again.",
-        variant: "destructive",
-      });
-      setIsLoadingCreate(false);
-    }
-  };
+  // Create game is now handled on the /classic page.
+  // This page is now only for joining a game.
 
   const joinGame = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +55,7 @@ export default function ClassicOnlinePage() {
           Classic Online
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Create a room or join with a code.
+          Create a custom game or join with a code.
         </p>
       </header>
 
@@ -92,13 +64,13 @@ export default function ClassicOnlinePage() {
           <CardHeader>
             <CardTitle>Create a New Game</CardTitle>
             <CardDescription>
-              Start a new game and invite a friend.
+              Start a new game with custom rules and invite a friend.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={createGame} disabled={isLoadingCreate} className="w-full">
-              {isLoadingCreate ? <UniqueLoading size="sm" className="w-6 h-6" /> : "Create Game"}
-            </Button>
+            <Link href="/classic" passHref>
+                <Button className="w-full">Create Custom Game</Button>
+            </Link>
           </CardContent>
         </Card>
         <Card>
