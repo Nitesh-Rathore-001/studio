@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { UltimateGameBoard } from "@/components/game/ultimate/UltimateGameBoard";
@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Users } from "lucide-react";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
   boards: { [key: number]: { [key: number]: Player } };
@@ -24,19 +25,30 @@ type GameState = {
   status: "waiting" | "playing" | "finished";
 };
 
+// This is a placeholder for a real user ID system
+const getUserId = () => {
+    let id = sessionStorage.getItem("tictac-userid");
+    if (!id) {
+        id = `user_${Math.random().toString(36).substr(2, 9)}`;
+        sessionStorage.setItem("tictac-userid", id);
+    }
+    return id;
+}
+
 // Helper to convert Firestore map of maps to a 2D array for the component
 const boardMapToArray = (boardMap: { [key: number]: { [key: number]: Player } }): UltimateBoardState => {
   const array: UltimateBoardState = Array(9).fill(null).map(() => Array(9).fill(null));
-  for (const boardIdx in boardMap) {
-    for (const cellIdx in boardMap[boardIdx]) {
-      array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
+  if (boardMap) {
+    for (const boardIdx in boardMap) {
+      for (const cellIdx in boardMap[boardIdx]) {
+        if(array[boardIdx]) {
+            array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
+        }
+      }
     }
   }
   return array;
 };
-
-
-const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
 
 const createEmptyUltimateBoard = (): UltimateBoardState => {
     return Array(9).fill(null).map(() => Array(9).fill(null));
@@ -49,14 +61,10 @@ export default function UltimateOnlineGamePage() {
   const [game, setGame] = useState<GameState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [playerRole, setPlayerRole] = useState<"X" | "O" | "spectator" | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let id = sessionStorage.getItem("tictac-userid");
-    if (!id) {
-      id = getUserId();
-      sessionStorage.setItem("tictac-userid", id);
-    }
-    setUserId(id);
+    setUserId(getUserId());
   }, []);
 
   useEffect(() => {
@@ -64,41 +72,70 @@ export default function UltimateOnlineGamePage() {
 
     const gameRef = doc(db, "ultimateGames", gameId);
 
-    const unsubscribe = onSnapshot(gameRef, async (docSnap) => {
-      if (docSnap.exists()) {
-        const gameData = docSnap.data() as GameState;
-        
-        // Determine player role
-        if (gameData.players.X === userId) {
-          setPlayerRole("X");
-        } else if (gameData.players.O === userId) {
-          setPlayerRole("O");
-        } else if (gameData.status === 'waiting') {
-            // Try to join the game
-            if (!gameData.players.X) {
-                await updateDoc(gameRef, { "players.X": userId });
-                setPlayerRole("X");
-            } else if (!gameData.players.O) {
-                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
-                setPlayerRole("O");
-            } else {
-                setPlayerRole("spectator");
+    const joinGameAndListen = async () => {
+        try {
+            const docSnap = await getDoc(gameRef);
+            if (!docSnap.exists()) {
+                toast({
+                    title: "Game not found",
+                    description: "This game does not exist or has been deleted.",
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
             }
-        } else {
-            setPlayerRole("spectator");
+
+            const gameData = docSnap.data() as GameState;
+            let currentRole: "X" | "O" | "spectator" = 'spectator';
+            if (gameData.players.X === userId) {
+                currentRole = "X";
+            } else if (gameData.players.O === userId) {
+                currentRole = "O";
+            } else if (gameData.status === 'waiting') {
+                if (!gameData.players.X) {
+                    await updateDoc(gameRef, { "players.X": userId });
+                    currentRole = "X";
+                } else if (!gameData.players.O) {
+                    await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+                    currentRole = "O";
+                }
+            }
+            setPlayerRole(currentRole);
+
+        } catch (error) {
+            console.error("Error joining game:", error);
+            toast({
+                title: "Error",
+                description: "Could not join the game.",
+                variant: "destructive",
+            });
         }
-
-        setGame(gameData);
-      } else {
-        toast({
-          title: "Game not found",
-          description: "This game does not exist or has been deleted.",
-          variant: "destructive",
+        
+        const unsubscribe = onSnapshot(gameRef, (doc) => {
+            if (doc.exists()) {
+                setGame(doc.data() as GameState);
+            }
+            if (isLoading) setIsLoading(false);
+        }, (error) => {
+            console.error("Snapshot error:", error);
+            toast({
+                title: "Connection error",
+                description: "Lost connection to the game.",
+                variant: "destructive"
+            });
         });
-      }
-    });
+        
+        return unsubscribe;
+    };
+    
+    const unsubPromise = joinGameAndListen();
 
-    return () => unsubscribe();
+    return () => {
+      unsubPromise.then(unsub => {
+        if (unsub) unsub();
+      });
+    };
+
   }, [gameId, userId, toast]);
 
   const boardsArray = useMemo(() => {
@@ -115,15 +152,18 @@ export default function UltimateOnlineGamePage() {
       return;
     }
 
-    const currentBoardsArray = boardMapToArray(game.boards);
-    currentBoardsArray[boardIndex][cellIndex] = game.currentPlayer;
+    // Creating a deep copy to be safe, though direct update should work with Firestore structure
+    const newBoards = JSON.parse(JSON.stringify(game.boards));
+    newBoards[boardIndex][cellIndex] = game.currentPlayer;
     
+    const newBoardsArray = boardMapToArray(newBoards);
     const newMainBoard = [...game.mainBoard];
-    const smallWin = checkSmallWin(currentBoardsArray[boardIndex]);
+    const smallWin = checkSmallWin(newBoardsArray[boardIndex]);
+    
     if (smallWin) {
       newMainBoard[boardIndex] = game.currentPlayer;
-    } else if (currentBoardsArray[boardIndex].every(cell => cell !== null)) {
-      newMainBoard[boardIndex] = 'D';
+    } else if (Object.keys(newBoards[boardIndex]).length === 9) {
+       newMainBoard[boardIndex] = 'D'; // Draw on small board
     }
 
     const gameWinner = checkUltimateWin(newMainBoard);
@@ -152,8 +192,13 @@ export default function UltimateOnlineGamePage() {
     });
   };
 
-  if (!game || !playerRole) {
-    return <div className="container mx-auto px-4 py-12 text-center">Loading game...</div>;
+  if (isLoading || !game || !playerRole) {
+    return (
+        <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <UniqueLoading size="lg" />
+            <p className="text-muted-foreground">Loading game...</p>
+        </div>
+    );
   }
   
   const isDraw = !game.winner && game.mainBoard.every(cell => cell !== null);

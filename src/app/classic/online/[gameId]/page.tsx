@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Users } from "lucide-react";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
   board: { [key: string]: Player };
@@ -26,7 +27,14 @@ type GameState = {
 };
 
 // This is a placeholder for a real user ID system
-const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
+const getUserId = () => {
+    let id = sessionStorage.getItem("tictac-userid");
+    if (!id) {
+        id = `user_${Math.random().toString(36).substr(2, 9)}`;
+        sessionStorage.setItem("tictac-userid", id);
+    }
+    return id;
+}
 
 // Helper to convert Firestore map to a 2D array for the component
 const boardMapToArray = (boardMap: { [key: string]: Player }, size: number): Player[][] => {
@@ -52,12 +60,7 @@ export default function ClassicOnlineGamePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let id = sessionStorage.getItem("tictac-userid");
-    if (!id) {
-      id = getUserId();
-      sessionStorage.setItem("tictac-userid", id);
-    }
-    setUserId(id);
+    setUserId(getUserId());
   }, []);
 
   useEffect(() => {
@@ -65,7 +68,6 @@ export default function ClassicOnlineGamePage() {
 
     const gameRef = doc(db, "classicGames", gameId);
 
-    // First, try to join the game if needed.
     const joinGameAndListen = async () => {
       try {
         const docSnap = await getDoc(gameRef);
@@ -81,7 +83,7 @@ export default function ClassicOnlineGamePage() {
 
         const gameData = docSnap.data() as GameState;
         
-        let currentRole: "X" | "O" | "spectator" | null = 'spectator';
+        let currentRole: "X" | "O" | "spectator" = 'spectator';
         if (gameData.players.X === userId) {
           currentRole = "X";
         } else if (gameData.players.O === userId) {
@@ -96,6 +98,7 @@ export default function ClassicOnlineGamePage() {
           }
         }
         setPlayerRole(currentRole);
+
       } catch (error) {
         console.error("Error joining game:", error);
         toast({
@@ -103,16 +106,20 @@ export default function ClassicOnlineGamePage() {
           description: "Could not join the game.",
           variant: "destructive",
         });
-        setIsLoading(false);
-        return;
       }
 
-      // Now, set up the real-time listener.
       const unsubscribe = onSnapshot(gameRef, (doc) => {
         if (doc.exists()) {
           setGame(doc.data() as GameState);
         }
         if (isLoading) setIsLoading(false);
+      }, (error) => {
+          console.error("Snapshot error:", error);
+          toast({
+              title: "Connection error",
+              description: "Lost connection to the game.",
+              variant: "destructive"
+          });
       });
 
       return unsubscribe;
@@ -131,7 +138,6 @@ export default function ClassicOnlineGamePage() {
     if (game) {
       return boardMapToArray(game.board, game.size);
     }
-    // Return a default empty board to prevent errors before game loads
     return [];
   }, [game]);
 
@@ -166,7 +172,12 @@ export default function ClassicOnlineGamePage() {
   };
 
   if (isLoading || !game || !playerRole) {
-    return <div className="container mx-auto px-4 py-12 text-center">Loading game...</div>;
+    return (
+        <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <UniqueLoading size="lg" />
+            <p className="text-muted-foreground">Loading game...</p>
+        </div>
+    );
   }
   
   const isDraw = !game.winner && Object.keys(game.board).filter(k => game.board[k]).length === (game.size * game.size);

@@ -34,12 +34,7 @@ export default function ClassicModePage() {
      setIsLoadingOnline(true);
      try {
        const board: { [key: string]: null } = {};
-       for(let i=0; i<settings.gridSize; i++) {
-         for(let j=0; j<settings.gridSize; j++) {
-             board[`${i}_${j}`] = null;
-         }
-       }
- 
+       
        const gameRef = await addDoc(collection(db, "classicGames"), {
          board: board,
          players: { X: null, O: null },
@@ -48,6 +43,7 @@ export default function ClassicModePage() {
          createdAt: serverTimestamp(),
          size: settings.gridSize,
          winCondition: settings.winCondition,
+         winningCells: [],
        });
        router.push(`/classic/online/${gameRef.id}`);
      } catch (error) {
