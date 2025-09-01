@@ -32,7 +32,9 @@ const boardMapToArray = (boardMap: { [key: string]: Player }, size: number): Pla
   const array: Player[][] = Array(size).fill(null).map(() => Array(size).fill(null));
   for (const key in boardMap) {
     const [row, col] = key.split("_").map(Number);
-    array[row][col] = boardMap[key];
+    if(row < size && col < size) {
+       array[row][col] = boardMap[key];
+    }
   }
   return array;
 };
@@ -43,11 +45,14 @@ export default function ClassicOnlineGamePage() {
   const { toast } = useToast();
   const [game, setGame] = useState<GameState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [playerRole, setPlayerRole] = useState<"X" | "O" | null>(null);
+  const [playerRole, setPlayerRole] = useState<"X" | "O" | "spectator" | null>(null);
 
   useEffect(() => {
-    const id = sessionStorage.getItem("tictac-userid") || getUserId();
-    sessionStorage.setItem("tictac-userid", id);
+    let id = sessionStorage.getItem("tictac-userid");
+    if (!id) {
+      id = getUserId();
+      sessionStorage.setItem("tictac-userid", id);
+    }
     setUserId(id);
   }, []);
 
@@ -60,30 +65,35 @@ export default function ClassicOnlineGamePage() {
       if (docSnap.exists()) {
         const gameData = docSnap.data() as GameState;
 
-        if (gameData.status === "waiting") {
-          const players = gameData.players;
-          if (!players.X) {
-            await updateDoc(gameRef, { "players.X": userId });
-            setPlayerRole("X");
-          } else if (!players.O && players.X !== userId) {
-            await updateDoc(gameRef, { 
-              "players.O": userId,
-              status: "playing"
-            });
-            setPlayerRole("O");
-          }
+        // Determine player role
+        if (gameData.players.X === userId) {
+          setPlayerRole("X");
+        } else if (gameData.players.O === userId) {
+          setPlayerRole("O");
+        } else if (gameData.status === 'waiting') {
+            // Try to join the game
+            if (!gameData.players.X) {
+                await updateDoc(gameRef, { "players.X": userId });
+                setPlayerRole("X");
+            } else if (!gameData.players.O) {
+                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+                setPlayerRole("O");
+            } else {
+                setPlayerRole("spectator");
+            }
         } else {
-            if (gameData.players.X === userId) setPlayerRole("X");
-            else if (gameData.players.O === userId) setPlayerRole("O");
+            setPlayerRole("spectator");
         }
         
         setGame(gameData);
+
       } else {
         toast({
           title: "Game not found",
           description: "This game does not exist or has been deleted.",
           variant: "destructive",
         });
+        // Potentially redirect or show a "not found" component
       }
     });
 
@@ -126,14 +136,14 @@ export default function ClassicOnlineGamePage() {
     });
   };
 
-  if (!game || boardArray.length === 0) {
+  if (!game || !playerRole) {
     return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
         <UniqueLoading size="lg" />
         Loading game...
     </div>;
   }
   
-  const isDraw = !game.winner && Object.values(game.board).every(cell => cell !== null);
+  const isDraw = !game.winner && Object.keys(game.board).filter(k => game.board[k]).length === (game.size * game.size);
 
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-8">
@@ -161,7 +171,7 @@ export default function ClassicOnlineGamePage() {
                 </div>
              )}
              <p className="mt-2 text-sm text-muted-foreground">
-                You are playing as {playerRole || 'Spectator'}
+                You are playing as {playerRole}
              </p>
         </CardContent>
       </Card>

@@ -39,17 +39,24 @@ const boardMapToArray = (boardMap: { [key: number]: { [key: number]: Player } })
 
 const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
 
+const createEmptyUltimateBoard = (): UltimateBoardState => {
+    return Array(9).fill(null).map(() => Array(9).fill(null));
+};
+
 export default function UltimateOnlineGamePage() {
   const params = useParams();
   const gameId = params.gameId as string;
   const { toast } = useToast();
   const [game, setGame] = useState<GameState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [playerRole, setPlayerRole] = useState<"X" | "O" | null>(null);
+  const [playerRole, setPlayerRole] = useState<"X" | "O" | "spectator" | null>(null);
 
   useEffect(() => {
-    const id = sessionStorage.getItem("tictac-userid") || getUserId();
-    sessionStorage.setItem("tictac-userid", id);
+    let id = sessionStorage.getItem("tictac-userid");
+    if (!id) {
+      id = getUserId();
+      sessionStorage.setItem("tictac-userid", id);
+    }
     setUserId(id);
   }, []);
 
@@ -62,20 +69,26 @@ export default function UltimateOnlineGamePage() {
       if (docSnap.exists()) {
         const gameData = docSnap.data() as GameState;
         
-        if (gameData.status === "waiting") {
-          const players = gameData.players;
-          if (!players.X) {
-            await updateDoc(gameRef, { "players.X": userId });
-            setPlayerRole("X");
-          } else if (!players.O && players.X !== userId) {
-            await updateDoc(gameRef, { "players.O": userId, status: "playing" });
-            setPlayerRole("O");
-          }
+        // Determine player role
+        if (gameData.players.X === userId) {
+          setPlayerRole("X");
+        } else if (gameData.players.O === userId) {
+          setPlayerRole("O");
+        } else if (gameData.status === 'waiting') {
+            // Try to join the game
+            if (!gameData.players.X) {
+                await updateDoc(gameRef, { "players.X": userId });
+                setPlayerRole("X");
+            } else if (!gameData.players.O) {
+                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+                setPlayerRole("O");
+            } else {
+                setPlayerRole("spectator");
+            }
         } else {
-            if (gameData.players.X === userId) setPlayerRole("X");
-            else if (gameData.players.O === userId) setPlayerRole("O");
+            setPlayerRole("spectator");
         }
-        
+
         setGame(gameData);
       } else {
         toast({
@@ -139,13 +152,8 @@ export default function UltimateOnlineGamePage() {
       toast({ title: "Copied!", description: "Game link copied to clipboard." });
     });
   };
-  
-  const createEmptyUltimateBoard = (): UltimateBoardState => {
-    return Array(9).fill(null).map(() => Array(9).fill(null));
-  };
 
-
-  if (!game) {
+  if (!game || !playerRole) {
     return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
         <UniqueLoading size="lg" />
         Loading game...
@@ -180,7 +188,7 @@ export default function UltimateOnlineGamePage() {
                 </div>
              )}
              <p className="mt-2 text-sm text-muted-foreground">
-                You are playing as {playerRole || 'Spectator'}
+                You are playing as {playerRole}
              </p>
         </CardContent>
       </Card>
