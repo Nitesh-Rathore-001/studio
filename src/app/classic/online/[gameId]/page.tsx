@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { GameBoard } from "@/components/game/GameBoard";
@@ -23,6 +23,7 @@ type GameState = {
   status: "waiting" | "playing" | "finished";
   size: number;
   winCondition: number;
+  winningCells?: number[][];
 };
 
 // This is a placeholder for a real user ID system
@@ -49,6 +50,7 @@ export default function ClassicOnlineGamePage() {
   const [game, setGame] = useState<GameState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [playerRole, setPlayerRole] = useState<"X" | "O" | "spectator" | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let id = sessionStorage.getItem("tictac-userid");
@@ -64,56 +66,78 @@ export default function ClassicOnlineGamePage() {
 
     const gameRef = doc(db, "classicGames", gameId);
 
-    const unsubscribe = onSnapshot(gameRef, async (docSnap) => {
-      if (docSnap.exists()) {
-        const gameData = docSnap.data() as GameState;
-
-        // Determine player role
-        if (gameData.players.X === userId) {
-          setPlayerRole("X");
-        } else if (gameData.players.O === userId) {
-          setPlayerRole("O");
-        } else if (gameData.status === 'waiting') {
-            // Try to join the game
-            if (!gameData.players.X) {
-                await updateDoc(gameRef, { "players.X": userId });
-                setPlayerRole("X");
-            } else if (!gameData.players.O) {
-                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
-                setPlayerRole("O");
-            } else {
-                setPlayerRole("spectator");
-            }
-        } else {
-            setPlayerRole("spectator");
+    // First, try to join the game if needed.
+    const joinGameAndListen = async () => {
+      try {
+        const docSnap = await getDoc(gameRef);
+        if (!docSnap.exists()) {
+          toast({
+            title: "Game not found",
+            description: "This game does not exist or has been deleted.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
         }
-        
-        setGame(gameData);
 
-      } else {
+        const gameData = docSnap.data() as GameState;
+        
+        let currentRole: "X" | "O" | "spectator" | null = 'spectator';
+        if (gameData.players.X === userId) {
+          currentRole = "X";
+        } else if (gameData.players.O === userId) {
+          currentRole = "O";
+        } else if (gameData.status === 'waiting') {
+          if (!gameData.players.X) {
+            await updateDoc(gameRef, { "players.X": userId });
+            currentRole = "X";
+          } else if (!gameData.players.O) {
+            await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+            currentRole = "O";
+          }
+        }
+        setPlayerRole(currentRole);
+      } catch (error) {
+        console.error("Error joining game:", error);
         toast({
-          title: "Game not found",
-          description: "This game does not exist or has been deleted.",
+          title: "Error",
+          description: "Could not join the game.",
           variant: "destructive",
         });
-        // Potentially redirect or show a "not found" component
+        setIsLoading(false);
+        return;
       }
-    });
 
-    return () => unsubscribe();
+      // Now, set up the real-time listener.
+      const unsubscribe = onSnapshot(gameRef, (doc) => {
+        if (doc.exists()) {
+          setGame(doc.data() as GameState);
+        }
+        if (isLoading) setIsLoading(false);
+      });
+
+      return unsubscribe;
+    };
+
+    const unsubPromise = joinGameAndListen();
+
+    return () => {
+      unsubPromise.then(unsub => {
+        if (unsub) unsub();
+      });
+    };
   }, [gameId, userId, toast]);
 
   const boardArray = useMemo(() => {
     if (game) {
       return boardMapToArray(game.board, game.size);
     }
-    // Return an empty board matching the size to prevent errors before game loads
-    const size = game?.size || 3;
-    return Array(size).fill(null).map(() => Array(size).fill(null));
+    // Return a default empty board to prevent errors before game loads
+    return [];
   }, [game]);
 
   const handleCellClick = async (row: number, col: number) => {
-    if (!game || game.winner || boardArray[row][col] || game.currentPlayer !== playerRole) {
+    if (!game || game.winner || boardArray[row]?.[col] || game.currentPlayer !== playerRole) {
       return;
     }
 
@@ -142,7 +166,7 @@ export default function ClassicOnlineGamePage() {
     });
   };
 
-  if (!game || !playerRole) {
+  if (isLoading || !game || !playerRole) {
     return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
         <UniqueLoading size="lg" />
         Loading game...
@@ -187,7 +211,7 @@ export default function ClassicOnlineGamePage() {
         board={boardArray}
         onCellClick={handleCellClick}
         disabled={game.status !== "playing" || playerRole !== game.currentPlayer}
-        winningCells={game.winner && (game as any).winningCells ? (game as any).winningCells : []}
+        winningCells={game.winningCells || []}
       />
     </div>
   );
