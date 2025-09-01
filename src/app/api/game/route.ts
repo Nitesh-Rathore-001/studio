@@ -9,4 +9,6 @@ import {NextResponse} from 'next/server';
 export async function GET() {
   return NextResponse.json({
     message:
-      'This endpoint would be the entry point for a WebSocket connection in a state
+      'This endpoint would be the entry point for a WebSocket connection in a state',
+  });
+}
