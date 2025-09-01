@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, getDoc, collection, addDoc } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ export default function ClassicOnlinePage() {
         players: { X: null, O: null },
         currentPlayer: "X",
         status: "waiting",
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
       });
       router.push(`/classic/online/${gameRef.id}`);
     } catch (error) {

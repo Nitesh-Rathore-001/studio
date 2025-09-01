@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, getDoc, collection, addDoc } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ export default function UltimateOnlinePage() {
         currentPlayer: "X",
         activeBoard: null,
         status: "waiting",
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
       });
       router.push(`/ultimate/online/${gameRef.id}`);
     } catch (error) {
