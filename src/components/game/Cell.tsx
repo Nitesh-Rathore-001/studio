@@ -38,7 +38,7 @@ export function Cell({ value, onClick, disabled, isWinning }: CellProps) {
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group relative flex items-center justify-center aspect-square rounded-md bg-background hover:bg-muted transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:z-10",
+        "group relative flex items-center justify-center aspect-square bg-background hover:bg-muted transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:z-10",
         {
           "cursor-not-allowed": disabled,
           "animate-pulse bg-primary/20 ring-4 ring-primary": isWinning,

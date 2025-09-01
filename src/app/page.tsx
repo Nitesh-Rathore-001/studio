@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SlidersHorizontal, Grid3x3, Users, Wifi } from 'lucide-react';
+import { SlidersHorizontal, Grid3x3 } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -20,41 +20,33 @@ export default function Home() {
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <SlidersHorizontal className="text-primary" />
-              <span className="font-headline text-2xl">Custom Game</span>
+              <span className="font-headline text-2xl">Classic Tic Tac Toe</span>
             </CardTitle>
             <CardDescription>
               Your rules. Your game. Choose your grid size and win condition for endless fun.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Users className="w-4 h-4 mr-2" />
-              <span>1-2 Players (Local)</span>
-            </div>
-            <Link href="/custom" passHref>
+          <CardContent>
+            <Link href="/classic" passHref>
               <Button className="w-full font-bold">Play Now</Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="border-dashed">
+        <Card className="hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3 text-muted-foreground">
-              <Grid3x3 />
+            <CardTitle className="flex items-center gap-3">
+              <Grid3x3 className="text-primary" />
               <span className="font-headline text-2xl">Ultimate Tic Tac Toe</span>
             </CardTitle>
             <CardDescription>
               A strategic game of tic-tac-toe within tic-tac-toe. A true test of skill.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Wifi className="w-4 h-4 mr-2" />
-              <span>Online Multiplayer</span>
-            </div>
-            <Button disabled className="w-full font-bold">
-              Coming Soon
-            </Button>
+          <CardContent>
+             <Link href="/ultimate" passHref>
+              <Button className="w-full font-bold">Play Now</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

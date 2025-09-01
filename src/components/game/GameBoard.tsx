@@ -3,6 +3,7 @@
 import React from "react";
 import { type Player } from "@/lib/types";
 import { Cell } from "./Cell";
+import { cn } from "@/lib/utils";
 
 type GameBoardProps = {
   board: Player[][];
@@ -16,11 +17,11 @@ export function GameBoard({ board, onCellClick, disabled, winningCells }: GameBo
 
   return (
     <div
-      className="grid aspect-square w-full max-w-lg shadow-lg rounded-lg bg-card border p-2"
+      className="grid aspect-square w-full max-w-lg shadow-lg rounded-lg bg-border"
       style={{
         gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
         gridTemplateRows: `repeat(${gridSize}, 1fr)`,
-        gap: '0.25rem',
+        gap: '2px',
       }}
     >
       {board.map((row, rowIndex) =>
