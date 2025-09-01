@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import UniqueLoading from "@/components/ui/grid-loading";
 
 export default function UltimateOnlinePage() {
   const router = useRouter();
@@ -99,7 +98,7 @@ export default function UltimateOnlinePage() {
           </CardHeader>
           <CardContent>
             <Button onClick={createGame} disabled={isLoadingCreate} className="w-full">
-              {isLoadingCreate ? <UniqueLoading size="sm" className="w-6 h-6" /> : "Create Game" }
+              {isLoadingCreate ? "Creating..." : "Create Game" }
             </Button>
           </CardContent>
         </Card>
@@ -119,7 +118,7 @@ export default function UltimateOnlinePage() {
                 disabled={isLoadingJoin}
               />
               <Button type="submit" disabled={isLoadingJoin || !joinCode.trim()}>
-                 {isLoadingJoin ? <UniqueLoading size="sm" className="w-6 h-6" /> : "Join"}
+                 {isLoadingJoin ? "Joining..." : "Join"}
               </Button>
             </form>
           </CardContent>

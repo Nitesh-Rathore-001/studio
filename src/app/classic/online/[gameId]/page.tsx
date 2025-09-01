@@ -13,7 +13,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Users } from "lucide-react";
-import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
   board: { [key: string]: Player };
@@ -167,10 +166,7 @@ export default function ClassicOnlineGamePage() {
   };
 
   if (isLoading || !game || !playerRole) {
-    return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
-        <UniqueLoading size="lg" />
-        Loading game...
-    </div>;
+    return <div className="container mx-auto px-4 py-12 text-center">Loading game...</div>;
   }
   
   const isDraw = !game.winner && Object.keys(game.board).filter(k => game.board[k]).length === (game.size * game.size);
