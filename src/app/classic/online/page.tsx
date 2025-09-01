@@ -18,9 +18,6 @@ export default function ClassicOnlinePage() {
   const [joinCode, setJoinCode] = useState("");
   const [isLoadingJoin, setIsLoadingJoin] = useState(false);
 
-  // Create game is now handled on the /classic page.
-  // This page is now only for joining a game.
-
   const joinGame = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode.trim()) return;
@@ -52,32 +49,19 @@ export default function ClassicOnlinePage() {
     <div className="container mx-auto px-4 py-12">
       <header className="text-center mb-12">
         <h1 className="font-headline text-4xl font-bold tracking-tighter">
-          Classic Online
+          Join a Classic Game
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Create a custom game or join with a code.
+          Enter a code to join an existing game.
         </p>
       </header>
 
-      <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create a New Game</CardTitle>
-            <CardDescription>
-              Start a new game with custom rules and invite a friend.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/classic" passHref>
-                <Button className="w-full">Create Custom Game</Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="grid gap-8 max-w-sm mx-auto">
         <Card>
           <CardHeader>
             <CardTitle>Join a Game</CardTitle>
             <CardDescription>
-              Enter a code to join an existing game.
+              Enter a code from your friend to join their game.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -92,6 +76,11 @@ export default function ClassicOnlinePage() {
                  {isLoadingJoin ? <UniqueLoading size="sm" /> : "Join"}
               </Button>
             </form>
+            <div className="mt-4 text-center">
+                 <Link href="/classic" passHref>
+                    <Button variant="link">Or, create a new game</Button>
+                 </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

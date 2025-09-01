@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { GameBoard } from "@/components/game/GameBoard";
@@ -19,14 +19,13 @@ type GameState = {
   board: { [key: string]: Player };
   currentPlayer: Player;
   winner: Player | null;
-  players: { X: string | null, O: string | null };
+  players: { X: string | null; O: string | null };
   status: "waiting" | "playing" | "finished";
   size: number;
   winCondition: number;
   winningCells?: number[][];
 };
 
-// This is a placeholder for a real user ID system
 const getUserId = () => {
     let id = sessionStorage.getItem("tictac-userid");
     if (!id) {
@@ -36,7 +35,6 @@ const getUserId = () => {
     return id;
 }
 
-// Helper to convert Firestore map to a 2D array for the component
 const boardMapToArray = (boardMap: { [key: string]: Player }, size: number): Player[][] => {
   const array: Player[][] = Array(size).fill(null).map(() => Array(size).fill(null));
   if (boardMap) {
@@ -65,77 +63,74 @@ export default function ClassicOnlineGamePage() {
 
   useEffect(() => {
     if (!gameId || !userId) return;
+    setIsLoading(true);
 
     const gameRef = doc(db, "classicGames", gameId);
 
-    const joinGameAndListen = async () => {
-      try {
-        const docSnap = await getDoc(gameRef);
-        if (!docSnap.exists()) {
-          toast({
-            title: "Game not found",
-            description: "This game does not exist or has been deleted.",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        const gameData = docSnap.data() as GameState;
-        
-        let currentRole: "X" | "O" | "spectator" = 'spectator';
-        if (gameData.players.X === userId) {
-          currentRole = "X";
-        } else if (gameData.players.O === userId) {
-          currentRole = "O";
-        } else if (gameData.status === 'waiting') {
-          if (!gameData.players.X) {
-            await updateDoc(gameRef, { "players.X": userId });
-            currentRole = "X";
-          } else if (!gameData.players.O) {
-            await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
-            currentRole = "O";
-          }
-        }
-        setPlayerRole(currentRole);
-
-      } catch (error) {
-        console.error("Error joining game:", error);
+    const joinGame = async () => {
+      const docSnap = await getDoc(gameRef);
+      if (!docSnap.exists()) {
         toast({
-          title: "Error",
-          description: "Could not join the game.",
+          title: "Game not found",
+          description: "This game does not exist or has been deleted.",
           variant: "destructive",
         });
+        setIsLoading(false);
+        return;
       }
+      
+      const gameData = docSnap.data() as GameState;
+      let currentRole: "X" | "O" | "spectator" = "spectator";
 
-      const unsubscribe = onSnapshot(gameRef, (doc) => {
-        if (doc.exists()) {
-          setGame(doc.data() as GameState);
+      if (gameData.players.X === userId) {
+        currentRole = "X";
+      } else if (gameData.players.O === userId) {
+        currentRole = "O";
+      } else if (gameData.status === 'waiting') {
+        if (!gameData.players.X) {
+          await updateDoc(gameRef, { "players.X": userId });
+          currentRole = "X";
+        } else if (!gameData.players.O) {
+          await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+          currentRole = "O";
         }
-        if (isLoading) setIsLoading(false);
-      }, (error) => {
-          console.error("Snapshot error:", error);
-          toast({
-              title: "Connection error",
-              description: "Lost connection to the game.",
-              variant: "destructive"
-          });
-      });
-
-      return unsubscribe;
+      }
+      setPlayerRole(currentRole);
     };
 
-    const unsubPromise = joinGameAndListen();
+    joinGame().catch(error => {
+      console.error("Error joining game:", error);
+      toast({
+        title: "Error",
+        description: "Could not join the game.",
+        variant: "destructive",
+      });
+    });
+    
+    const unsubscribe = onSnapshot(gameRef, (doc) => {
+      if (doc.exists()) {
+        setGame(doc.data() as GameState);
+      } else {
+         toast({ title: "Game not found", description: "This game may have been deleted.", variant: "destructive" });
+      }
+      if (isLoading) setIsLoading(false);
+    }, (error) => {
+        console.error("Snapshot error:", error);
+        toast({
+            title: "Connection error",
+            description: "Lost connection to the game.",
+            variant: "destructive"
+        });
+    });
 
     return () => {
-      unsubPromise.then(unsub => {
-        if (unsub) unsub();
-      });
+      unsubscribe();
     };
+
   }, [gameId, userId, toast]);
 
   const boardArray = useMemo(() => {
-    if (game) {
+    if (game?.board && game.size) {
       return boardMapToArray(game.board, game.size);
     }
     return [];
@@ -155,13 +150,18 @@ export default function ClassicOnlineGamePage() {
 
     const updatedBoardField = `board.${row}_${col}`;
 
-    await updateDoc(doc(db, "classicGames", gameId), {
-      [updatedBoardField]: game.currentPlayer,
-      currentPlayer: nextPlayer,
-      winner: winInfo ? game.currentPlayer : null,
-      winningCells: winInfo ? winInfo.winningCells : [],
-      status: newStatus,
-    });
+    try {
+      await updateDoc(doc(db, "classicGames", gameId), {
+        [updatedBoardField]: game.currentPlayer,
+        currentPlayer: nextPlayer,
+        winner: winInfo ? game.currentPlayer : null,
+        winningCells: winInfo ? winInfo.winningCells : [],
+        status: newStatus,
+      });
+    } catch(err) {
+      console.error("Error updating game state:", err);
+      toast({ title: "Error", description: "Could not make a move.", variant: "destructive"})
+    }
   };
   
   const copyGameLink = () => {
@@ -171,7 +171,7 @@ export default function ClassicOnlineGamePage() {
     });
   };
 
-  if (isLoading || !game || !playerRole) {
+  if (isLoading || !game || !playerRole || boardArray.length === 0) {
     return (
         <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
             <UniqueLoading size="lg" />
@@ -180,7 +180,7 @@ export default function ClassicOnlineGamePage() {
     );
   }
   
-  const isDraw = !game.winner && Object.keys(game.board).filter(k => game.board[k]).length === (game.size * game.size);
+  const isDraw = !game.winner && game.board && Object.keys(game.board).length === (game.size * game.size);
 
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-8">

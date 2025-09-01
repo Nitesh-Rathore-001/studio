@@ -21,12 +21,7 @@ export default function UltimateOnlinePage() {
   const createGame = async () => {
     setIsLoadingCreate(true);
     try {
-      // For ultimate game, the boards structure is a map of maps.
-      // We can initialize it as an empty object for Firestore.
-      const initialBoards: { [key: string]: any } = {};
-      for (let i = 0; i < 9; i++) {
-        initialBoards[i] = {};
-      }
+      const initialBoards = {};
 
       const gameRef = await addDoc(collection(db, "ultimateGames"), {
         boards: initialBoards,

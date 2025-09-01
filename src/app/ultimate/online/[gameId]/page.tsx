@@ -16,7 +16,7 @@ import { Copy, Users } from "lucide-react";
 import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
-  boards: { [key: number]: { [key: number]: Player } };
+  boards: { [key: string]: { [key: string]: Player } };
   mainBoard: Player[];
   currentPlayer: Player;
   activeBoard: number | null;
@@ -25,7 +25,6 @@ type GameState = {
   status: "waiting" | "playing" | "finished";
 };
 
-// This is a placeholder for a real user ID system
 const getUserId = () => {
     let id = sessionStorage.getItem("tictac-userid");
     if (!id) {
@@ -35,14 +34,13 @@ const getUserId = () => {
     return id;
 }
 
-// Helper to convert Firestore map of maps to a 2D array for the component
-const boardMapToArray = (boardMap: { [key: number]: { [key: number]: Player } }): UltimateBoardState => {
+const boardMapToArray = (boardMap: { [key: string]: { [key: string]: Player } }): UltimateBoardState => {
   const array: UltimateBoardState = Array(9).fill(null).map(() => Array(9).fill(null));
   if (boardMap) {
     for (const boardIdx in boardMap) {
-      for (const cellIdx in boardMap[boardIdx]) {
-        if(array[boardIdx]) {
-            array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
+      if (array[boardIdx]) {
+        for (const cellIdx in boardMap[boardIdx]) {
+          array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
         }
       }
     }
@@ -69,77 +67,73 @@ export default function UltimateOnlineGamePage() {
 
   useEffect(() => {
     if (!gameId || !userId) return;
+    setIsLoading(true);
 
     const gameRef = doc(db, "ultimateGames", gameId);
 
-    const joinGameAndListen = async () => {
-        try {
-            const docSnap = await getDoc(gameRef);
-            if (!docSnap.exists()) {
-                toast({
-                    title: "Game not found",
-                    description: "This game does not exist or has been deleted.",
-                    variant: "destructive",
-                });
-                setIsLoading(false);
-                return;
-            }
-
-            const gameData = docSnap.data() as GameState;
-            let currentRole: "X" | "O" | "spectator" = 'spectator';
-            if (gameData.players.X === userId) {
-                currentRole = "X";
-            } else if (gameData.players.O === userId) {
-                currentRole = "O";
-            } else if (gameData.status === 'waiting') {
-                if (!gameData.players.X) {
-                    await updateDoc(gameRef, { "players.X": userId });
-                    currentRole = "X";
-                } else if (!gameData.players.O) {
-                    await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
-                    currentRole = "O";
-                }
-            }
-            setPlayerRole(currentRole);
-
-        } catch (error) {
-            console.error("Error joining game:", error);
+    const joinGame = async () => {
+        const docSnap = await getDoc(gameRef);
+        if (!docSnap.exists()) {
             toast({
-                title: "Error",
-                description: "Could not join the game.",
+                title: "Game not found",
+                description: "This game does not exist or has been deleted.",
                 variant: "destructive",
             });
+            setIsLoading(false);
+            return;
         }
-        
-        const unsubscribe = onSnapshot(gameRef, (doc) => {
-            if (doc.exists()) {
-                setGame(doc.data() as GameState);
-            }
-            if (isLoading) setIsLoading(false);
-        }, (error) => {
-            console.error("Snapshot error:", error);
-            toast({
-                title: "Connection error",
-                description: "Lost connection to the game.",
-                variant: "destructive"
-            });
-        });
-        
-        return unsubscribe;
-    };
-    
-    const unsubPromise = joinGameAndListen();
 
-    return () => {
-      unsubPromise.then(unsub => {
-        if (unsub) unsub();
+        const gameData = docSnap.data() as GameState;
+        let currentRole: "X" | "O" | "spectator" = 'spectator';
+        if (gameData.players.X === userId) {
+            currentRole = "X";
+        } else if (gameData.players.O === userId) {
+            currentRole = "O";
+        } else if (gameData.status === 'waiting') {
+            if (!gameData.players.X) {
+                await updateDoc(gameRef, { "players.X": userId });
+                currentRole = "X";
+            } else if (!gameData.players.O) {
+                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+                currentRole = "O";
+            }
+        }
+        setPlayerRole(currentRole);
+    };
+
+    joinGame().catch(error => {
+      console.error("Error joining game:", error);
+      toast({
+          title: "Error",
+          description: "Could not join the game.",
+          variant: "destructive",
       });
+    });
+    
+    const unsubscribe = onSnapshot(gameRef, (doc) => {
+        if (doc.exists()) {
+            setGame(doc.data() as GameState);
+        } else {
+            toast({ title: "Game not found", description: "This game may have been deleted.", variant: "destructive" });
+        }
+        if (isLoading) setIsLoading(false);
+    }, (error) => {
+        console.error("Snapshot error:", error);
+        toast({
+            title: "Connection error",
+            description: "Lost connection to the game.",
+            variant: "destructive"
+        });
+    });
+    
+    return () => {
+      unsubscribe();
     };
 
   }, [gameId, userId, toast]);
 
   const boardsArray = useMemo(() => {
-    if (game) {
+    if (game?.boards) {
       return boardMapToArray(game.boards);
     }
     return createEmptyUltimateBoard();
@@ -152,17 +146,15 @@ export default function UltimateOnlineGamePage() {
       return;
     }
 
-    // Creating a deep copy to be safe, though direct update should work with Firestore structure
-    const newBoards = JSON.parse(JSON.stringify(game.boards));
-    newBoards[boardIndex][cellIndex] = game.currentPlayer;
+    const newBoardsArray = boardMapToArray(game.boards);
+    newBoardsArray[boardIndex][cellIndex] = game.currentPlayer;
     
-    const newBoardsArray = boardMapToArray(newBoards);
     const newMainBoard = [...game.mainBoard];
     const smallWin = checkSmallWin(newBoardsArray[boardIndex]);
     
     if (smallWin) {
       newMainBoard[boardIndex] = game.currentPlayer;
-    } else if (Object.keys(newBoards[boardIndex]).length === 9) {
+    } else if (newBoardsArray[boardIndex].every(cell => cell !== null)) {
        newMainBoard[boardIndex] = 'D'; // Draw on small board
     }
 
@@ -175,14 +167,19 @@ export default function UltimateOnlineGamePage() {
     const nextPlayer = game.currentPlayer === "X" ? "O" : "X";
     const newStatus = gameWinner ? "finished" : "playing";
 
-    await updateDoc(doc(db, "ultimateGames", gameId), {
-      [`boards.${boardIndex}.${cellIndex}`]: game.currentPlayer,
-      mainBoard: newMainBoard,
-      currentPlayer: nextPlayer,
-      activeBoard: nextActiveBoard,
-      winner: gameWinner ? game.currentPlayer : null,
-      status: newStatus,
-    });
+    try {
+        await updateDoc(doc(db, "ultimateGames", gameId), {
+        [`boards.${boardIndex}.${cellIndex}`]: game.currentPlayer,
+        mainBoard: newMainBoard,
+        currentPlayer: nextPlayer,
+        activeBoard: nextActiveBoard,
+        winner: gameWinner ? game.currentPlayer : null,
+        status: newStatus,
+        });
+    } catch(err) {
+        console.error("Error updating game state:", err);
+        toast({ title: "Error", description: "Could not make a move.", variant: "destructive"})
+    }
   };
 
   const copyGameLink = () => {

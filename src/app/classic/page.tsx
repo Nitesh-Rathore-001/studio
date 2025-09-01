@@ -32,7 +32,9 @@ export default function ClassicModePage() {
      if (!settings) return;
      setIsLoadingOnline(true);
      try {
-       const board: { [key: string]: null } = {};
+       // Firestore doesn't support nested arrays.
+       // Use a map for the board. It will be populated as players make moves.
+       const board = {}; 
        
        const gameRef = await addDoc(collection(db, "classicGames"), {
          board: board,
@@ -49,7 +51,7 @@ export default function ClassicModePage() {
        console.error("Error creating game:", error);
        toast({
          title: "Error",
-         description: "Failed to create a game. Please try again.",
+         description: "Failed to create an online game. Please try again.",
          variant: "destructive",
        });
        setIsLoadingOnline(false);
@@ -110,9 +112,12 @@ export default function ClassicModePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" onClick={handlePlayOnline} disabled={isLoadingOnline}>
-                {isLoadingOnline ? <UniqueLoading size="sm" /> : "Create Online Game"}
-            </Button>
+             <div className="flex flex-col gap-4">
+                <Button className="w-full" onClick={handlePlayOnline} disabled={isLoadingOnline}>
+                    {isLoadingOnline ? <UniqueLoading size="sm" /> : "Create Online Game"}
+                </Button>
+                <Button className="w-full" variant="outline" onClick={() => router.push('/classic/online')}>Join a Game</Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -127,4 +132,3 @@ export default function ClassicModePage() {
     </div>
   );
 }
-
