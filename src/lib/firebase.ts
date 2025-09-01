@@ -12,4 +12,11 @@ const firebaseConfig = {
   storageBucket: "tictac-infinity.firebasestorage.app",
   apiKey: "AIzaSyAEQH9oApDiY5zt0X-EsBWyzDeD-bUvn50",
   authDomain: "tictac-infinity.firebaseapp.com",
-  messagingSenderId: "45433
+  messagingSenderId: "454330986633",
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Get a reference to the database service
+export const db = getFirestore(app);
