@@ -1,3 +1,6 @@
+// This file is no longer the primary source for online gameplay,
+// but is kept for potential future use (e.g., user profiles, leaderboards).
+
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
@@ -9,9 +12,4 @@ const firebaseConfig = {
   storageBucket: "tictac-infinity.firebasestorage.app",
   apiKey: "AIzaSyAEQH9oApDiY5zt0X-EsBWyzDeD-bUvn50",
   authDomain: "tictac-infinity.firebaseapp.com",
-  messagingSenderId: "454330986633",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+  messagingSenderId: "45433
