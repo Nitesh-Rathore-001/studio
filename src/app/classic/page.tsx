@@ -10,6 +10,7 @@ import { Users, Wifi } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 export default function ClassicModePage() {
   const [settings, setSettings] = useState<GameSettings | null>(null);
@@ -115,7 +116,7 @@ export default function ClassicModePage() {
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={handlePlayOnline} disabled={isLoadingOnline}>
-                {isLoadingOnline ? "Creating..." : "Create Online Game"}
+                {isLoadingOnline ? <UniqueLoading size="sm" /> : "Create Online Game"}
             </Button>
           </CardContent>
         </Card>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import UniqueLoading from "@/components/ui/grid-loading";
 
 export default function ClassicOnlinePage() {
   const router = useRouter();
@@ -88,7 +89,7 @@ export default function ClassicOnlinePage() {
                 disabled={isLoadingJoin}
               />
               <Button type="submit" disabled={isLoadingJoin || !joinCode.trim()}>
-                 {isLoadingJoin ? "Joining..." : "Join"}
+                 {isLoadingJoin ? <UniqueLoading size="sm" /> : "Join"}
               </Button>
             </form>
           </CardContent>
