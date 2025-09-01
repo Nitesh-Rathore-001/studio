@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -15,7 +16,7 @@ import { Copy, Users } from "lucide-react";
 import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
-  boards: UltimateBoardState;
+  boards: { [key: number]: { [key: number]: Player } };
   mainBoard: Player[];
   currentPlayer: Player;
   activeBoard: number | null;
@@ -23,6 +24,18 @@ type GameState = {
   players: { X: string | null, O: string | null };
   status: "waiting" | "playing" | "finished";
 };
+
+// Helper to convert Firestore map of maps to a 2D array for the component
+const boardMapToArray = (boardMap: { [key: number]: { [key: number]: Player } }): UltimateBoardState => {
+  const array: UltimateBoardState = Array(9).fill(null).map(() => Array(9).fill(null));
+  for (const boardIdx in boardMap) {
+    for (const cellIdx in boardMap[boardIdx]) {
+      array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
+    }
+  }
+  return array;
+};
+
 
 const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -76,21 +89,28 @@ export default function UltimateOnlineGamePage() {
     return () => unsubscribe();
   }, [gameId, userId, toast]);
 
+  const boardsArray = useMemo(() => {
+    if (game) {
+      return boardMapToArray(game.boards);
+    }
+    return createEmptyUltimateBoard();
+  }, [game]);
+  
   const handleCellClick = async (boardIndex: number, cellIndex: number) => {
-    if (!game || game.winner || game.boards[boardIndex][cellIndex] || game.mainBoard[boardIndex] ||
+    if (!game || game.winner || boardsArray[boardIndex][cellIndex] || game.mainBoard[boardIndex] ||
         (game.activeBoard !== null && game.activeBoard !== boardIndex) || 
         game.currentPlayer !== playerRole) {
       return;
     }
 
-    const newBoards = game.boards.map(b => [...b]) as UltimateBoardState;
-    newBoards[boardIndex][cellIndex] = game.currentPlayer;
-
+    const currentBoardsArray = boardMapToArray(game.boards);
+    currentBoardsArray[boardIndex][cellIndex] = game.currentPlayer;
+    
     const newMainBoard = [...game.mainBoard];
-    const smallWin = checkSmallWin(newBoards[boardIndex]);
+    const smallWin = checkSmallWin(currentBoardsArray[boardIndex]);
     if (smallWin) {
       newMainBoard[boardIndex] = game.currentPlayer;
-    } else if (newBoards[boardIndex].every(cell => cell !== null)) {
+    } else if (currentBoardsArray[boardIndex].every(cell => cell !== null)) {
       newMainBoard[boardIndex] = 'D';
     }
 
@@ -104,7 +124,7 @@ export default function UltimateOnlineGamePage() {
     const newStatus = gameWinner ? "finished" : "playing";
 
     await updateDoc(doc(db, "ultimateGames", gameId), {
-      boards: newBoards,
+      [`boards.${boardIndex}.${cellIndex}`]: game.currentPlayer,
       mainBoard: newMainBoard,
       currentPlayer: nextPlayer,
       activeBoard: nextActiveBoard,
@@ -119,6 +139,11 @@ export default function UltimateOnlineGamePage() {
       toast({ title: "Copied!", description: "Game link copied to clipboard." });
     });
   };
+  
+  const createEmptyUltimateBoard = (): UltimateBoardState => {
+    return Array(9).fill(null).map(() => Array(9).fill(null));
+  };
+
 
   if (!game) {
     return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
@@ -161,7 +186,7 @@ export default function UltimateOnlineGamePage() {
       </Card>
       
       <UltimateGameBoard
-        boards={game.boards}
+        boards={boardsArray}
         mainBoard={game.mainBoard}
         onCellClick={handleCellClick}
         activeBoard={game.activeBoard}

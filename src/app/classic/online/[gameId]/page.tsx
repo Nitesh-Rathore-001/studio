@@ -1,8 +1,9 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { GameBoard } from "@/components/game/GameBoard";
@@ -15,15 +16,26 @@ import { Copy, Users } from "lucide-react";
 import UniqueLoading from "@/components/ui/grid-loading";
 
 type GameState = {
-  board: Player[][];
+  board: { [key: string]: Player };
   currentPlayer: Player;
   winner: Player | null;
   players: { X: string | null, O: string | null };
   status: "waiting" | "playing" | "finished";
+  size: number;
 };
 
 // This is a placeholder for a real user ID system
 const getUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
+
+// Helper to convert Firestore map to a 2D array for the component
+const boardMapToArray = (boardMap: { [key: string]: Player }, size: number): Player[][] => {
+  const array: Player[][] = Array(size).fill(null).map(() => Array(size).fill(null));
+  for (const key in boardMap) {
+    const [row, col] = key.split("_").map(Number);
+    array[row][col] = boardMap[key];
+  }
+  return array;
+};
 
 export default function ClassicOnlineGamePage() {
   const params = useParams();
@@ -48,7 +60,6 @@ export default function ClassicOnlineGamePage() {
       if (docSnap.exists()) {
         const gameData = docSnap.data() as GameState;
 
-        // Player assignment logic
         if (gameData.status === "waiting") {
           const players = gameData.players;
           if (!players.X) {
@@ -79,20 +90,29 @@ export default function ClassicOnlineGamePage() {
     return () => unsubscribe();
   }, [gameId, userId, toast]);
 
+  const boardArray = useMemo(() => {
+    if (game) {
+      return boardMapToArray(game.board, game.size);
+    }
+    return [];
+  }, [game]);
+
   const handleCellClick = async (row: number, col: number) => {
-    if (!game || game.winner || game.board[row][col] || game.currentPlayer !== playerRole) {
+    if (!game || game.winner || boardArray[row][col] || game.currentPlayer !== playerRole) {
       return;
     }
 
-    const newBoard = game.board.map(r => [...r]);
-    newBoard[row][col] = game.currentPlayer;
+    const currentBoardArray = boardMapToArray(game.board, game.size);
+    currentBoardArray[row][col] = game.currentPlayer;
 
-    const winInfo = checkWin(newBoard, game.currentPlayer, 3);
+    const winInfo = checkWin(currentBoardArray, game.currentPlayer, 3); // Classic is always 3-in-a-row
     const nextPlayer = game.currentPlayer === "X" ? "O" : "X";
     const newStatus = winInfo ? "finished" : "playing";
 
+    const updatedBoardField = `board.${row}_${col}`;
+
     await updateDoc(doc(db, "classicGames", gameId), {
-      board: newBoard,
+      [updatedBoardField]: game.currentPlayer,
       currentPlayer: nextPlayer,
       winner: winInfo ? game.currentPlayer : null,
       status: newStatus,
@@ -106,16 +126,14 @@ export default function ClassicOnlineGamePage() {
     });
   };
 
-  if (!game) {
+  if (!game || boardArray.length === 0) {
     return <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center gap-4">
         <UniqueLoading size="lg" />
         Loading game...
     </div>;
   }
   
-  const isSpectator = userId !== game.players.X && userId !== game.players.O;
-  const isDraw = !game.winner && game.board.flat().every(cell => cell !== null);
-
+  const isDraw = !game.winner && Object.values(game.board).every(cell => cell !== null);
 
   return (
     <div className="container mx-auto px-4 py-8 flex flex-col items-center gap-8">
@@ -149,10 +167,10 @@ export default function ClassicOnlineGamePage() {
       </Card>
       
       <GameBoard
-        board={game.board}
+        board={boardArray}
         onCellClick={handleCellClick}
         disabled={game.status !== "playing" || playerRole !== game.currentPlayer}
-        winningCells={[]}
+        winningCells={[]} // Winning cells display not implemented for online yet
       />
     </div>
   );

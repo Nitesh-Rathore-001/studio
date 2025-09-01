@@ -21,8 +21,17 @@ export default function UltimateOnlinePage() {
   const createGame = async () => {
     setIsLoadingCreate(true);
     try {
+      // Firestore doesn't support nested arrays. We'll use a map of maps (objects).
+      const boards = {};
+      for(let i=0; i<9; i++) {
+          boards[i] = {};
+          for(let j=0; j<9; j++) {
+              boards[i][j] = null;
+          }
+      }
+
       const gameRef = await addDoc(collection(db, "ultimateGames"), {
-        boards: Array(9).fill(null).map(() => Array(9).fill(null)),
+        boards: boards,
         mainBoard: Array(9).fill(null),
         players: { X: null, O: null },
         currentPlayer: "X",

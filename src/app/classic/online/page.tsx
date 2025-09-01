@@ -21,12 +21,21 @@ export default function ClassicOnlinePage() {
   const createGame = async () => {
     setIsLoadingCreate(true);
     try {
+      // Firestore doesn't support nested arrays. We'll use a map instead.
+      const board = {};
+      for(let i=0; i<3; i++) {
+        for(let j=0; j<3; j++) {
+            board[`${i}_${j}`] = null;
+        }
+      }
+
       const gameRef = await addDoc(collection(db, "classicGames"), {
-        board: Array(3).fill(null).map(() => Array(3).fill(null)),
+        board: board,
         players: { X: null, O: null },
         currentPlayer: "X",
         status: "waiting",
         createdAt: serverTimestamp(),
+        size: 3,
       });
       router.push(`/classic/online/${gameRef.id}`);
     } catch (error) {
