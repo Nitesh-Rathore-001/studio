@@ -3,11 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import { CustomGame } from "@/components/game/CustomGame";
-import { GameSettings } from '@/components/game/GameSetup';
+import type { GameSettings } from '@/components/game/GameSetup';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import UniqueLoading from '@/components/ui/grid-loading';
 
-export default function CustomGamePage() {
+export default function ClassicOfflinePage() {
     const [settings, setSettings] = useState<GameSettings | null>(null);
     const router = useRouter();
 
@@ -29,8 +30,9 @@ export default function CustomGamePage() {
 
     if (!settings) {
         return (
-            <div className="container mx-auto px-4 py-12 text-center">
-                <p>Loading settings...</p>
+            <div className="container mx-auto px-4 py-12 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <UniqueLoading size="lg" />
+                <p className="text-muted-foreground">Loading game settings...</p>
                 <p className="text-sm text-muted-foreground mt-2">
                     If you are not redirected, <Button variant="link" onClick={() => router.push('/classic')}>click here to set up a game</Button>.
                 </p>

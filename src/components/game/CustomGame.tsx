@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { GameSetup, type GameSettings } from "./GameSetup";
 import { GameBoard } from "./GameBoard";
 import { GameInfo } from "./GameInfo";
@@ -8,9 +9,16 @@ import { GameControls } from "./GameControls";
 import { WinAnimation } from "./WinAnimation";
 import { useGameState } from "@/hooks/use-game-state";
 import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 
-export function CustomGame() {
-  const [settings, setSettings] = useState<GameSettings | null>(null);
+
+interface CustomGameProps {
+  gameSettings: GameSettings;
+}
+
+export function CustomGame({ gameSettings }: CustomGameProps) {
+  const [settings, setSettings] = useState<GameSettings | null>(gameSettings);
+  const router = useRouter();
 
   const {
     board,
@@ -25,20 +33,24 @@ export function CustomGame() {
     canUndo,
     canRedo,
   } = useGameState(settings);
+  
+  // Update internal state if props change
+  useEffect(() => {
+    setSettings(gameSettings);
+  }, [gameSettings]);
 
-  const handleGameStart = useCallback((newSettings: GameSettings) => {
-    setSettings(newSettings);
-  }, []);
 
   const handleNewGame = useCallback(() => {
-    setSettings(null);
-    resetGame();
-  }, [resetGame]);
+    // This should take the user back to the classic mode setup
+    sessionStorage.removeItem('classicGameSettings');
+    router.push('/classic');
+  }, [router]);
   
   const gameStarted = useMemo(() => !!settings, [settings]);
 
   if (!gameStarted) {
-    return <GameSetup onStartGame={handleGameStart} />;
+    // This part should ideally not be reached if routing is correct
+    return <GameSetup onStartGame={(newSettings) => setSettings(newSettings)} />;
   }
 
   return (
@@ -51,6 +63,7 @@ export function CustomGame() {
             winner={winner}
             isDraw={isDraw}
             gridSize={settings.gridSize}
+            winCondition={settings.winCondition}
           />
         </CardContent>
       </Card>
@@ -73,3 +86,4 @@ export function CustomGame() {
     </div>
   );
 }
+

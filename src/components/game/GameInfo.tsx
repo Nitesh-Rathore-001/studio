@@ -1,3 +1,4 @@
+
 import { type Player } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
@@ -6,9 +7,10 @@ type GameInfoProps = {
   winner: Player;
   isDraw: boolean;
   gridSize: number;
+  winCondition: number;
 };
 
-export function GameInfo({ currentPlayer, winner, isDraw, gridSize }: GameInfoProps) {
+export function GameInfo({ currentPlayer, winner, isDraw, gridSize, winCondition }: GameInfoProps) {
   let status;
 
   if (winner && winner !== 'D') {
@@ -26,9 +28,12 @@ export function GameInfo({ currentPlayer, winner, isDraw, gridSize }: GameInfoPr
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between w-full">
-      <h2 className="font-headline text-3xl mb-4 sm:mb-0">
-        {gridSize === 3 ? 'Ultimate' : `${gridSize}x${gridSize}`} Board
-      </h2>
+       <div className="text-center sm:text-left mb-4 sm:mb-0">
+         <h2 className="font-headline text-3xl">
+           {gridSize}x{gridSize} Board
+         </h2>
+         <p className="text-sm text-muted-foreground">{winCondition} in a row to win</p>
+       </div>
       <div className="text-center">{status}</div>
     </div>
   );

@@ -19,14 +19,13 @@ export default function ClassicModePage() {
   const { toast } = useToast();
 
   const handleGameSetup = (newSettings: GameSettings) => {
+    // Persist settings in sessionStorage to be picked up by the offline game page
+    sessionStorage.setItem('classicGameSettings', JSON.stringify(newSettings));
     setSettings(newSettings);
   };
   
   const handlePlayOffline = () => {
-    // Navigate to the custom offline game page with settings
-    // The custom game page already handles settings via its own state,
-    // so we can just redirect. For a more robust solution, we could pass state via router.
-    router.push('/custom');
+    router.push('/classic/offline');
   };
 
   const handlePlayOnline = async () => {
@@ -118,10 +117,14 @@ export default function ClassicModePage() {
         </Card>
       </div>
        <div className="text-center mt-8">
-            <Button variant="link" onClick={() => setSettings(null)}>
+            <Button variant="link" onClick={() => {
+                sessionStorage.removeItem('classicGameSettings');
+                setSettings(null);
+            }}>
                 Change Game Rules
             </Button>
        </div>
     </div>
   );
 }
+
