@@ -38,9 +38,13 @@ const boardMapToArray = (boardMap: { [key: string]: { [key: string]: Player } })
   const array: UltimateBoardState = Array(9).fill(null).map(() => Array(9).fill(null));
   if (boardMap) {
     for (const boardIdx in boardMap) {
-      if (array[boardIdx]) {
+      if (array[parseInt(boardIdx)]) {
         for (const cellIdx in boardMap[boardIdx]) {
-          array[boardIdx][cellIdx] = boardMap[boardIdx][cellIdx];
+           const boardNum = parseInt(boardIdx);
+           const cellNum = parseInt(cellIdx);
+           if (array[boardNum] && typeof array[boardNum][cellNum] !== 'undefined') {
+             array[boardNum][cellNum] = boardMap[boardIdx][cellIdx];
+           }
         }
       }
     }
@@ -67,70 +71,83 @@ export default function UltimateOnlineGamePage() {
 
   useEffect(() => {
     if (!gameId || !userId) return;
-    setIsLoading(true);
-
+    
     const gameRef = doc(db, "ultimateGames", gameId);
 
-    const joinGame = async () => {
-        const docSnap = await getDoc(gameRef);
-        if (!docSnap.exists()) {
+    const joinGameAndListen = async () => {
+        try {
+            const docSnap = await getDoc(gameRef);
+            if (!docSnap.exists()) {
+                toast({
+                    title: "Game not found",
+                    description: "This game does not exist or has been deleted.",
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            const gameData = docSnap.data() as GameState;
+            let currentRole: "X" | "O" | "spectator" = 'spectator';
+            
+            if (gameData.players.X === userId) {
+                currentRole = "X";
+            } else if (gameData.players.O === userId) {
+                currentRole = "O";
+            } else if (gameData.status === 'waiting') {
+                if (!gameData.players.X) {
+                    await updateDoc(gameRef, { "players.X": userId });
+                    currentRole = "X";
+                } else if (!gameData.players.O) {
+                    await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
+                    currentRole = "O";
+                }
+            }
+            setPlayerRole(currentRole);
+        } catch (error) {
+            console.error("Error joining game:", error);
             toast({
-                title: "Game not found",
-                description: "This game does not exist or has been deleted.",
+                title: "Error",
+                description: "Could not join the game.",
                 variant: "destructive",
             });
             setIsLoading(false);
             return;
         }
 
-        const gameData = docSnap.data() as GameState;
-        let currentRole: "X" | "O" | "spectator" = 'spectator';
-        if (gameData.players.X === userId) {
-            currentRole = "X";
-        } else if (gameData.players.O === userId) {
-            currentRole = "O";
-        } else if (gameData.status === 'waiting') {
-            if (!gameData.players.X) {
-                await updateDoc(gameRef, { "players.X": userId });
-                currentRole = "X";
-            } else if (!gameData.players.O) {
-                await updateDoc(gameRef, { "players.O": userId, status: 'playing' });
-                currentRole = "O";
+        const unsubscribe = onSnapshot(gameRef, (doc) => {
+            if (doc.exists()) {
+                setGame(doc.data() as GameState);
+            } else {
+                toast({ title: "Game not found", description: "This game may have been deleted.", variant: "destructive" });
             }
-        }
-        setPlayerRole(currentRole);
-    };
-
-    joinGame().catch(error => {
-      console.error("Error joining game:", error);
-      toast({
-          title: "Error",
-          description: "Could not join the game.",
-          variant: "destructive",
-      });
-    });
-    
-    const unsubscribe = onSnapshot(gameRef, (doc) => {
-        if (doc.exists()) {
-            setGame(doc.data() as GameState);
-        } else {
-            toast({ title: "Game not found", description: "This game may have been deleted.", variant: "destructive" });
-        }
-        if (isLoading) setIsLoading(false);
-    }, (error) => {
-        console.error("Snapshot error:", error);
-        toast({
-            title: "Connection error",
-            description: "Lost connection to the game.",
-            variant: "destructive"
+            if (isLoading) setIsLoading(false);
+        }, (error) => {
+            console.error("Snapshot error:", error);
+            toast({
+                title: "Connection error",
+                description: "Lost connection to the game.",
+                variant: "destructive"
+            });
+            setIsLoading(false);
         });
+
+        return unsubscribe;
+    };
+    
+    let unsubscribe: (() => void) | undefined;
+    joinGameAndListen().then(unsub => {
+        if (unsub) {
+            unsubscribe = unsub;
+        }
     });
     
     return () => {
-      unsubscribe();
+        if (unsubscribe) {
+            unsubscribe();
+        }
     };
-
-  }, [gameId, userId, toast]);
+  }, [gameId, userId, toast, isLoading]);
 
   const boardsArray = useMemo(() => {
     if (game?.boards) {

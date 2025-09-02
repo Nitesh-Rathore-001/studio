@@ -32,8 +32,6 @@ export default function ClassicModePage() {
      if (!settings) return;
      setIsLoadingOnline(true);
      try {
-       // Firestore doesn't support nested arrays.
-       // Use a map for the board. It will be populated as players make moves.
        const board = {}; 
        
        const gameRef = await addDoc(collection(db, "classicGames"), {
